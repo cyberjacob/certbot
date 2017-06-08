@@ -46,7 +46,14 @@ if "CERTBOT_AUTO" in os.environ:
     LEAUTO = os.path.basename(os.environ["CERTBOT_AUTO"])
 
 fragment = os.path.join(".local", "share", "letsencrypt")
-cli_command = LEAUTO if fragment in sys.argv[0] else "certbot"
+if fragment in sys.argv[0]:
+    cli_command = LEAUTO
+    logger.warning("In May 2016, the letsencrypt-auto project was renamed to Certbot, and "
+            "the name of this program changed to certbot-auto. Running Certbot using the "
+            "letsencrypt-auto script, however you may find more recent support information"
+            "under the new name.")
+else:
+    cli_command = "certbot"
 
 # Argparse's help formatting has a lot of unhelpful peculiarities, so we want
 # to replace as much of it as we can...
