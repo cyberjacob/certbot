@@ -9,6 +9,7 @@ import OpenSSL
 import zope.component
 
 from acme import client as acme_client
+from acme import crypto_util as acme_crypto_util
 from acme import errors as acme_errors
 from acme import jose
 from acme import messages
@@ -53,12 +54,16 @@ def determine_user_agent(config):
     :rtype: `str`
     """
 
+    # WARNING: To ensure changes are in line with Certbot's privacy
+    # policy, talk to a core Certbot team member before making any
+    # changes here.
     if config.user_agent is None:
-        ua = ("CertbotACMEClient/{0} ({1}; {2}) Authenticator/{3} Installer/{4} "
+        ua = ("CertbotACMEClient/{0} ({1}; {2}{8}) Authenticator/{3} Installer/{4} "
               "({5}; flags: {6}) Py/{7}")
         ua = ua.format(certbot.__version__, cli.cli_command, util.get_os_info_ua(),
                        config.authenticator, config.installer, config.verb,
-                       ua_flags(config), platform.python_version())
+                       ua_flags(config), platform.python_version(),
+                       "; " + config.user_agent_comment if config.user_agent_comment else "")
     else:
         ua = config.user_agent
     return ua
@@ -316,9 +321,17 @@ class Client(object):
         domains = [d for d in domains if d in auth_domains]
 
         # Create CSR from names
-        key = crypto_util.init_save_key(
-            self.config.rsa_key_size, self.config.key_dir)
-        csr = crypto_util.init_save_csr(key, domains, self.config.csr_dir)
+        if self.config.dry_run:
+            key = util.Key(file=None,
+                           pem=crypto_util.make_key(self.config.rsa_key_size))
+            csr = util.CSR(file=None, form="pem",
+                           data=acme_crypto_util.make_csr(
+                               key.pem, domains, self.config.must_staple))
+        else:
+            key = crypto_util.init_save_key(
+                self.config.rsa_key_size, self.config.key_dir)
+            csr = crypto_util.init_save_csr(key, domains, self.config.csr_dir)
+
         certr, chain = self.obtain_certificate_from_csr(
             domains, csr, authzr=authzr)
 

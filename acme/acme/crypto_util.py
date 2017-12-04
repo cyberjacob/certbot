@@ -2,6 +2,7 @@
 import binascii
 import contextlib
 import logging
+import os
 import re
 import socket
 import sys
@@ -218,7 +219,7 @@ def _pyopenssl_cert_or_req_san(cert_or_req):
     text = func(OpenSSL.crypto.FILETYPE_TEXT, cert_or_req).decode("utf-8")
     # WARNING: this function does not support multiple SANs extensions.
     # Multiple X509v3 extensions of the same type is disallowed by RFC 5280.
-    match = re.search(r"X509v3 Subject Alternative Name:\s*(.*)", text)
+    match = re.search(r"X509v3 Subject Alternative Name:(?: critical)?\s*(.*)", text)
     # WARNING: this function assumes that no SAN can include
     # parts_separator, hence the split!
     sans_parts = [] if match is None else match.group(1).split(parts_separator)
@@ -243,7 +244,7 @@ def gen_ss_cert(key, domains, not_before=None,
     """
     assert domains, "Must provide one or more hostnames for the cert."
     cert = OpenSSL.crypto.X509()
-    cert.set_serial_number(int(binascii.hexlify(OpenSSL.rand.bytes(16)), 16))
+    cert.set_serial_number(int(binascii.hexlify(os.urandom(16)), 16))
     cert.set_version(2)
 
     extensions = [
